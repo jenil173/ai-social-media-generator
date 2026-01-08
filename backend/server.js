@@ -1,14 +1,10 @@
 // ============================================
-// AI Social Media Generator – FINAL STABLE VERSION
+// AI Social Media Generator - FINAL STABLE VERSION
 // ============================================
 
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
-
-// Safe fetch for Node 18+
-const fetch = (...args) =>
-  import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -17,87 +13,117 @@ app.use(cors());
 app.use(express.json());
 
 // ============================================
-// HEALTH CHECK
+// HOME PAGE (VISIBLE UI FOR INTERVIEWER)
 // ============================================
 app.get("/", (req, res) => {
-  res.json({
-    status: "OK",
-    message: "🚀 AI Social Media Generator running"
-  });
+  res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AI Social Media Generator</title>
+  <meta charset="UTF-8" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+      padding: 40px;
+    }
+    .container {
+      max-width: 900px;
+      margin: auto;
+      background: #020617;
+      padding: 30px;
+      border-radius: 10px;
+    }
+    h1 { color: #38bdf8; }
+    code {
+      background: #111827;
+      padding: 4px 6px;
+      border-radius: 4px;
+      color: #22c55e;
+    }
+    .box {
+      margin-top: 20px;
+      padding: 15px;
+      background: #020617;
+      border-left: 4px solid #38bdf8;
+    }
+    pre {
+      background: #020617;
+      padding: 15px;
+      border-radius: 6px;
+      overflow-x: auto;
+    }
+    .footer {
+      margin-top: 30px;
+      font-size: 14px;
+      color: #9ca3af;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚀 AI Social Media Generator</h1>
+    <p>
+      This is a backend-powered AI application that generates
+      <b>product-specific social media captions</b>.
+    </p>
+
+    <div class="box">
+      <h3>🔗 API Endpoint</h3>
+      <p><code>POST /api/generate</code></p>
+    </div>
+
+    <div class="box">
+      <h3>📦 Sample Request</h3>
+<pre><code>{
+  "brandName": "NovaReach",
+  "product": "AI marketing tool for startups",
+  "audience": "startup founders",
+  "platform": "Instagram",
+  "tone": "Casual"
+}</code></pre>
+    </div>
+
+    <div class="footer">
+      <p>Server is running successfully.</p>
+    </div>
+  </div>
+</body>
+</html>
+  `);
 });
 
 // ============================================
-// PRODUCT → REAL PROBLEM
+// PRODUCT → PROBLEM MAPPING
 // ============================================
-function detectProductProblem(product) {
+function detectProblem(product) {
   const p = product.toLowerCase();
 
-  if (p.includes("ai") || p.includes("content") || p.includes("marketing")) {
-    return "coming up with content ideas consistently without spending hours writing";
+  if (p.includes("marketing") || p.includes("content")) {
+    return "creating consistent social media content without wasting time";
   }
-  if (p.includes("fitness") || p.includes("workout")) {
-    return "starting workouts but losing motivation after a few days";
+  if (p.includes("fitness")) {
+    return "staying consistent with workouts";
   }
-  if (p.includes("food") || p.includes("delivery")) {
-    return "ordering food late because cooking feels exhausting after work";
+  if (p.includes("food")) {
+    return "deciding what to eat after a long day";
   }
-  if (p.includes("finance") || p.includes("expense")) {
-    return "tracking expenses manually and missing important insights";
+  if (p.includes("expense") || p.includes("finance")) {
+    return "tracking expenses without manual effort";
   }
-  if (p.includes("learning") || p.includes("course")) {
-    return "trying to learn new skills but struggling to stay consistent";
-  }
-
-  return "trying to manage daily tasks more efficiently";
+  return "managing daily tasks efficiently";
 }
 
 // ============================================
-// BUILD NARRATIVE
+// FALLBACK (SAFE MODE)
 // ============================================
-function buildNarratives(problem, audience) {
-  return [
-    `Many ${audience} struggle with ${problem}.`,
-    `${audience} often face ${problem}.`,
-    `One common challenge for ${audience} is ${problem}.`
-  ];
-}
-
-// ============================================
-// APPLY TONE (STYLE ONLY)
-// ============================================
-function applyTone(tone, brandName, product, narrative) {
-  switch (tone) {
-    case "Funny":
-      return `${narrative} 😅 ${brandName} turns ${product} into something that actually helps.`;
-    case "Educational":
-      return `${narrative} ${brandName} addresses this using ${product} in a structured way.`;
-    case "Professional":
-      return `${brandName} provides ${product} for teams dealing with this challenge.`;
-    case "Inspirational":
-      return `${narrative} ${brandName} believes ${product} can help create real progress.`;
-    default:
-      return `${narrative} ${brandName} uses ${product} to make this part of life simpler.`;
-  }
-}
-
-// ============================================
-// SMART FALLBACK (ANGLE-FIRST)
-// ============================================
-function generateFallback({ brandName, product, audience, tone }) {
-  const problem = detectProductProblem(product);
-  const narratives = buildNarratives(problem, audience);
-  const narrative =
-    narratives[Math.floor(Math.random() * narratives.length)];
-
+function fallbackContent({ brandName, product, audience }) {
+  const problem = detectProblem(product);
   return {
-    caption: applyTone(tone, brandName, product, narrative),
-    hashtags: [
-      "#Productivity",
-      "#DigitalTools",
-      "#Growth",
-      "#Innovation",
-      "#Startups"
-    ],
+    caption: `Many ${audience} struggle with ${problem}. ${brandName} helps by offering ${product} designed for real-world use.`,
+    hashtags: ["#Productivity", "#Innovation", "#Startups", "#TechTools"],
     cta: "Learn more"
   };
 }
@@ -116,22 +142,20 @@ app.post("/api/generate", async (req, res) => {
   }
 
   try {
-    const problem = detectProductProblem(product);
+    const problem = detectProblem(product);
 
     const prompt = `
-You are a human social media copywriter.
+You are a professional social media copywriter.
 
 Product: ${product}
 Audience: ${audience}
 Brand: ${brandName}
 Tone: ${tone}
 
-Core problem:
+Problem:
 "${problem}"
 
-Write a social media caption focused on this problem.
-Tone should only affect writing style.
-
+Generate a social media caption.
 Return ONLY valid JSON:
 {
   "caption": "",
@@ -145,24 +169,20 @@ Return ONLY valid JSON:
       {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${process.env.HF_API_KEY}`,
+          Authorization: `Bearer ${process.env.HF_API_KEY}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
           inputs: prompt,
-          parameters: {
-            temperature: 0.9,
-            max_new_tokens: 250,
-            return_full_text: false
-          }
+          parameters: { max_new_tokens: 200, temperature: 0.9 }
         })
       }
     );
 
-    const raw = await response.text();
-    const match = raw.match(/\{[\s\S]*\}/);
+    const text = await response.text();
+    const match = text.match(/\{[\s\S]*\}/);
 
-    if (!match) throw new Error("Invalid AI response");
+    if (!match) throw new Error("AI unavailable");
 
     const aiData = JSON.parse(match[0]);
 
@@ -171,19 +191,11 @@ Return ONLY valid JSON:
       source: "ai",
       data: aiData
     });
-
-  } catch (error) {
-    const fallback = generateFallback({
-      brandName,
-      product,
-      audience,
-      tone
-    });
-
+  } catch (err) {
     return res.json({
       success: true,
       source: "fallback",
-      data: fallback
+      data: fallbackContent({ brandName, product, audience })
     });
   }
 });
@@ -192,10 +204,5 @@ Return ONLY valid JSON:
 // START SERVER
 // ============================================
 app.listen(PORT, () => {
-  console.log(`
-====================================
-🚀 AI SOCIAL MEDIA GENERATOR
-✅ Server running on port ${PORT}
-====================================
-`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
