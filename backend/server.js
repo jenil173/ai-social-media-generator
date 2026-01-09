@@ -1,5 +1,5 @@
 // ============================================
-// AI Social Media Generator - FINAL STABLE BACKEND
+// AI Social Media Generator – FINAL STABLE BACKEND
 // ============================================
 
 const express = require("express");
@@ -26,13 +26,13 @@ app.get("/", (req, res) => {
 });
 
 // ============================================
-// PRODUCT → PROBLEM DETECTION
+// PRODUCT → PROBLEM LOGIC
 // ============================================
 function detectProblem(product) {
   const p = product.toLowerCase();
 
   if (p.includes("marketing") || p.includes("content")) {
-    return "creating consistent content without burning time";
+    return "creating consistent content without wasting time";
   }
   if (p.includes("fitness")) {
     return "staying consistent with workouts";
@@ -44,24 +44,24 @@ function detectProblem(product) {
     return "tracking money without manual effort";
   }
   if (p.includes("ai")) {
-    return "using AI tools effectively without complexity";
+    return "using AI tools without unnecessary complexity";
   }
   return "managing daily tasks efficiently";
 }
 
 // ============================================
-// TONE-AWARE FALLBACK (NO SAME OUTPUT EVER)
+// TONE-AWARE FALLBACK (NEVER EMPTY)
 // ============================================
 function fallbackContent({ brandName, product, audience, tone }) {
   const problem = detectProblem(product);
 
   const toneMap = {
     Professional: {
-      caption: `For ${audience}, ${problem} is a real challenge. ${brandName} provides a ${product} designed to deliver clarity, efficiency, and measurable results.`,
+      caption: `For ${audience}, ${problem} is a real challenge. ${brandName} delivers a ${product} focused on efficiency, clarity, and measurable results.`,
       cta: "Learn more"
     },
     Casual: {
-      caption: `${audience} know how annoying ${problem} can be. ${brandName} keeps ${product} simple and actually useful.`,
+      caption: `${audience} know how frustrating ${problem} can be. ${brandName} keeps ${product} simple and genuinely useful.`,
       cta: "Check it out"
     },
     Funny: {
@@ -70,11 +70,11 @@ ${brandName} makes ${product} way less painful.`,
       cta: "Tag someone who needs this 😂"
     },
     Educational: {
-      caption: `${problem} affects many ${audience}. ${brandName}'s ${product} focuses on removing friction through smarter design and usability.`,
+      caption: `${problem} affects many ${audience}. ${brandName}'s ${product} reduces friction through smarter design and usability.`,
       cta: "Save this for later 📌"
     },
     Inspirational: {
-      caption: `${audience} deserve better tools. ${brandName} turns ${product} into a way to grow with confidence.`,
+      caption: `${audience} deserve better tools. ${brandName} transforms ${product} into an opportunity to grow with confidence.`,
       cta: "Start your journey"
     }
   };
@@ -95,7 +95,7 @@ ${brandName} makes ${product} way less painful.`,
 }
 
 // ============================================
-// MAIN GENERATE API
+// MAIN GENERATE API (GUARANTEED OUTPUT)
 // ============================================
 app.post("/api/generate", async (req, res) => {
   const { brandName, product, audience, platform, tone } = req.body;
@@ -109,26 +109,25 @@ app.post("/api/generate", async (req, res) => {
 
   const problem = detectProblem(product);
 
-  // -------- PROMPT (PRODUCT FIRST, TONE SECOND) --------
   const prompt = `
 You are a professional social media copywriter.
 
-IMPORTANT:
-- Content must be PRODUCT-SPECIFIC
-- Tone affects style, NOT structure
-- If content fits another product, it is WRONG
+RULES:
+- Caption must be PRODUCT-SPECIFIC
+- Caption must clearly match the TONE
+- Never return empty fields
 
+Brand: ${brandName}
 Product: ${product}
 Audience: ${audience}
-Brand: ${brandName}
 Tone: ${tone}
-Core Problem: ${problem}
+Problem: ${problem}
 
 Return ONLY valid JSON:
 {
-  "caption": "",
-  "hashtags": [],
-  "cta": ""
+  "caption": "minimum 20 characters",
+  "hashtags": ["#tag1", "#tag2", "#tag3"],
+  "cta": "string"
 }
 `;
 
@@ -144,7 +143,7 @@ Return ONLY valid JSON:
         body: JSON.stringify({
           inputs: prompt,
           parameters: {
-            max_new_tokens: 200,
+            max_new_tokens: 250,
             temperature: 0.9,
             repetition_penalty: 1.2
           }
@@ -155,18 +154,31 @@ Return ONLY valid JSON:
     const raw = await response.text();
     const match = raw.match(/\{[\s\S]*\}/);
 
-    if (!match) throw new Error("AI unavailable");
+    if (!match) throw new Error("Invalid AI output");
 
     const aiData = JSON.parse(match[0]);
+
+    if (
+      !aiData.caption ||
+      typeof aiData.caption !== "string" ||
+      aiData.caption.trim().length < 20
+    ) {
+      throw new Error("Invalid caption");
+    }
 
     return res.json({
       success: true,
       source: "ai",
-      data: aiData
+      data: {
+        caption: aiData.caption,
+        hashtags: Array.isArray(aiData.hashtags)
+          ? aiData.hashtags
+          : ["#AI", "#Productivity"],
+        cta: aiData.cta || "Learn more"
+      }
     });
 
   } catch (error) {
-    // -------- SAFE FALLBACK --------
     return res.json({
       success: true,
       source: "fallback",
