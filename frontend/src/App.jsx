@@ -8,14 +8,13 @@ function App() {
     product: "",
     audience: "",
     platform: "Instagram",
-    tone: "Professional",
+    tone: "Professional"
   });
 
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // 🔗 Backend (LOCAL or RENDER)
   const API_URL =
     import.meta.env.VITE_API_URL || "http://localhost:5000";
 
@@ -34,9 +33,22 @@ function App() {
         `${API_URL}/api/generate`,
         formData
       );
-      setResult(res.data.data);
+
+      const safeData = {
+        caption:
+          res?.data?.data?.caption ||
+          "No caption generated.",
+        hashtags: Array.isArray(res?.data?.data?.hashtags)
+          ? res.data.data.hashtags
+          : [],
+        cta:
+          res?.data?.data?.cta ||
+          "Learn more"
+      };
+
+      setResult(safeData);
     } catch (err) {
-      setError("Failed to generate content");
+      setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -48,10 +60,10 @@ function App() {
       <header className="header">
         <div className="header-content">
           <h1>🚀 AI Social Media Generator</h1>
-          <p>Generate product-specific social media content instantly</p>
+          <p>Create product-specific social media content instantly</p>
           <div className="badges">
             <span className="badge">100% FREE</span>
-            <span className="badge">Powered by AI</span>
+            <span className="badge">AI Powered</span>
           </div>
         </div>
       </header>
@@ -59,7 +71,7 @@ function App() {
       {/* MAIN */}
       <main className="main-content">
         <div className="container">
-          {/* LEFT FORM */}
+          {/* FORM */}
           <div className="form-section">
             <div className="card">
               <h2>📝 Enter Details</h2>
@@ -139,7 +151,7 @@ function App() {
             </div>
           </div>
 
-          {/* RIGHT RESULT */}
+          {/* RESULT */}
           <div className="result-section">
             <div className="card">
               {loading && (
@@ -157,7 +169,7 @@ function App() {
                 </div>
               )}
 
-              {result && (
+              {result && result.caption && !loading && (
                 <div className="result-card">
                   <div className="result-item">
                     <h3>📝 Caption</h3>
@@ -169,11 +181,15 @@ function App() {
                   <div className="result-item">
                     <h3>🏷️ Hashtags</h3>
                     <div className="hashtags">
-                      {result.hashtags.map((tag, i) => (
-                        <span key={i} className="hashtag">
-                          {tag}
-                        </span>
-                      ))}
+                      {result.hashtags.length > 0 ? (
+                        result.hashtags.map((tag, i) => (
+                          <span key={i} className="hashtag">
+                            {tag.startsWith("#") ? tag : `#${tag}`}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="hashtag">#AI</span>
+                      )}
                     </div>
                   </div>
 
@@ -189,8 +205,8 @@ function App() {
               {!loading && !result && !error && (
                 <div className="empty-state">
                   <div className="empty-icon">📱</div>
-                  <h3>Ready to create?</h3>
-                  <p>Fill the form and click Generate</p>
+                  <h3>Ready?</h3>
+                  <p>Fill the form and click Generate.</p>
                 </div>
               )}
             </div>
