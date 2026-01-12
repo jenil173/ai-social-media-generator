@@ -1,11 +1,12 @@
 // ============================================
-// AI Social Media Generator – FINAL STABLE BACKEND
+// AI Social Media Generator – FINAL PRODUCTION BACKEND
 // ============================================
 
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 
+// Dynamic import for node-fetch (Node 18+ safe)
 const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
@@ -26,76 +27,71 @@ app.get("/", (req, res) => {
 });
 
 // ============================================
-// PRODUCT → PROBLEM LOGIC
-// ============================================
-function detectProblem(product) {
-  const p = product.toLowerCase();
-
-  if (p.includes("marketing") || p.includes("content")) {
-    return "creating consistent content without wasting time";
-  }
-  if (p.includes("fitness")) {
-    return "staying consistent with workouts";
-  }
-  if (p.includes("food")) {
-    return "deciding meals after a long day";
-  }
-  if (p.includes("finance") || p.includes("expense")) {
-    return "tracking money without manual effort";
-  }
-  if (p.includes("ai")) {
-    return "using AI tools without unnecessary complexity";
-  }
-  return "managing daily tasks efficiently";
-}
-
-// ============================================
-// TONE-AWARE FALLBACK (NEVER EMPTY)
+// FALLBACK (NEVER FAILS, NEVER GENERIC)
 // ============================================
 function fallbackContent({ brandName, product, audience, tone }) {
-  const problem = detectProblem(product);
-
   const toneMap = {
-    Professional: {
-      caption: `For ${audience}, ${problem} is a real challenge. ${brandName} delivers a ${product} focused on efficiency, clarity, and measurable results.`,
-      cta: "Learn more"
-    },
-    Casual: {
-      caption: `${audience} know how frustrating ${problem} can be. ${brandName} keeps ${product} simple and genuinely useful.`,
-      cta: "Check it out"
-    },
-    Funny: {
-      caption: `${problem} as a ${audience}? Yeah… not fun 😅  
-${brandName} makes ${product} way less painful.`,
-      cta: "Tag someone who needs this 😂"
-    },
-    Educational: {
-      caption: `${problem} affects many ${audience}. ${brandName}'s ${product} reduces friction through smarter design and usability.`,
-      cta: "Save this for later 📌"
-    },
-    Inspirational: {
-      caption: `${audience} deserve better tools. ${brandName} transforms ${product} into an opportunity to grow with confidence.`,
-      cta: "Start your journey"
-    }
+    Professional: `For ${audience}, ${product} should be reliable and efficient. ${brandName} focuses on delivering real value without unnecessary complexity.`,
+    Casual: `${audience} know how annoying ${product} problems can be. ${brandName} keeps things simple and actually useful.`,
+    Funny: `${product} problems again? 😅 ${brandName} makes life easier for ${audience}.`,
+    Educational: `${product} plays a key role for ${audience}. ${brandName} simplifies the experience through thoughtful design.`,
+    Inspirational: `${audience} deserve better experiences. ${brandName} turns ${product} into something empowering.`
   };
 
-  const selected = toneMap[tone] || toneMap.Casual;
-
   return {
-    caption: selected.caption,
-    hashtags: [
-      "#Productivity",
-      "#Innovation",
-      "#Startups",
-      "#TechTools",
-      "#Growth"
-    ],
-    cta: selected.cta
+    caption: toneMap[tone] || toneMap.Casual,
+    hashtags: ["#Innovation", "#Productivity", "#Growth"],
+    cta: "Learn more"
   };
 }
 
 // ============================================
-// MAIN GENERATE API (GUARANTEED OUTPUT)
+// STEP 1: AI PRODUCT UNDERSTANDING (GENERIC)
+// ============================================
+async function analyzeProductContext({ brandName, product, audience }) {
+  const analysisPrompt = `
+You are a product strategist.
+
+Analyze the product below and extract intent.
+
+Brand: ${brandName}
+Product: ${product}
+Audience: ${audience}
+
+Return ONLY valid JSON:
+{
+  "category": "type of product or service",
+  "problem": "main user pain point",
+  "benefit": "main value delivered",
+  "emotion": "emotion user should feel"
+}
+`;
+
+  const response = await fetch(
+    "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.1",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.HUGGINGFACE_API_TOKEN}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        inputs: analysisPrompt,
+        parameters: { max_new_tokens: 180, temperature: 0.3 }
+      })
+    }
+  );
+
+  const raw = await response.text();
+  const match = raw.match(/\{[\s\S]*\}/);
+
+  if (!match) throw new Error("Analysis failed");
+
+  return JSON.parse(match[0]);
+}
+
+// ============================================
+// MAIN GENERATE API (ROBUST & GENERIC)
 // ============================================
 app.post("/api/generate", async (req, res) => {
   const { brandName, product, audience, platform, tone } = req.body;
@@ -107,31 +103,43 @@ app.post("/api/generate", async (req, res) => {
     });
   }
 
-  const problem = detectProblem(product);
+  try {
+    // STEP 1: Understand product context
+    const context = await analyzeProductContext({
+      brandName,
+      product,
+      audience
+    });
 
-  const prompt = `
-You are a professional social media copywriter.
+    // STEP 2: Generate content using understanding
+    const generationPrompt = `
+You are a senior social media copywriter.
 
-RULES:
-- Caption must be PRODUCT-SPECIFIC
-- Caption must clearly match the TONE
-- Never return empty fields
+Context:
+Product Category: ${context.category}
+User Problem: ${context.problem}
+Primary Benefit: ${context.benefit}
+Emotional Angle: ${context.emotion}
 
 Brand: ${brandName}
-Product: ${product}
 Audience: ${audience}
+Platform: ${platform}
 Tone: ${tone}
-Problem: ${problem}
+
+Rules:
+- Be realistic and specific
+- Avoid generic marketing lines
+- 2–3 natural sentences
+- No exaggeration
 
 Return ONLY valid JSON:
 {
-  "caption": "minimum 20 characters",
+  "caption": "string",
   "hashtags": ["#tag1", "#tag2", "#tag3"],
   "cta": "string"
 }
 `;
 
-  try {
     const response = await fetch(
       "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.1",
       {
@@ -141,7 +149,7 @@ Return ONLY valid JSON:
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          inputs: prompt,
+          inputs: generationPrompt,
           parameters: {
             max_new_tokens: 250,
             temperature: 0.9,
@@ -158,12 +166,8 @@ Return ONLY valid JSON:
 
     const aiData = JSON.parse(match[0]);
 
-    if (
-      !aiData.caption ||
-      typeof aiData.caption !== "string" ||
-      aiData.caption.trim().length < 20
-    ) {
-      throw new Error("Invalid caption");
+    if (!aiData.caption || aiData.caption.trim().length < 15) {
+      throw new Error("Weak caption");
     }
 
     return res.json({
@@ -173,12 +177,13 @@ Return ONLY valid JSON:
         caption: aiData.caption,
         hashtags: Array.isArray(aiData.hashtags)
           ? aiData.hashtags
-          : ["#AI", "#Productivity"],
+          : ["#Innovation", "#Growth"],
         cta: aiData.cta || "Learn more"
       }
     });
 
-  } catch (error) {
+  } catch (err) {
+    // SAFE FALLBACK (never breaks UI)
     return res.json({
       success: true,
       source: "fallback",
